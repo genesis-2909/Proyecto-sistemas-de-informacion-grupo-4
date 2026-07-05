@@ -63,11 +63,7 @@ class GestionSolicitudesView extends StatelessWidget {
       });
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text(
-              'Solicitud rechazada. El usuario permanece como Viajero.',
-            ),
-          ),
+          const SnackBar(content: Text('Solicitud rechazada correctamente.')),
         );
       }
     } catch (e) {

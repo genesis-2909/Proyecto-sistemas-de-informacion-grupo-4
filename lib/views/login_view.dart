@@ -74,41 +74,59 @@ class _LoginViewState extends State<LoginView> {
               .toString()
               .trim();
 
-          // 🛡️ CONTROL DE FLUJO ESTRICTO: Si el rol registrado o solicitado es 'operador', o si seleccionó la pestaña Operador
-          if (rolReal == 'operador' ||
-              rolSolicitado == 'operador' ||
-              _selectedRole == UserRole.operador) {
-            // CASO A: Solicitud aún en revisión
+          // 1️⃣ REGLA DE ORO: Si es administrador en la BD, ENTRA DIRECTO sin excepciones
+          if (rolReal == 'admin') {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const DashboardNavigationView(),
+              ),
+            );
+            return;
+          }
+
+          // 2️⃣ CONTROL DE FLUJO EXCLUSIVO PARA OPERADORES EN REVISIÓN O RECHAZADOS
+          if (_selectedRole == UserRole.operador ||
+              rolSolicitado == 'operador') {
+            // CASO A: Solicitud aún en revisión (Pendiente)
             if (estadoSolicitud == 'Pendiente de Aprobación') {
-              await FirebaseAuth.instance
-                  .signOut(); // Desloguear de Firebase por seguridad
+              await FirebaseAuth.instance.signOut(); // Desloguear por seguridad
               _mostrarAlertaEstado(
                 'Solicitud en Espera',
                 'Tu solicitud como operador aún se encuentra bajo revisión por el equipo administrativo.',
                 Colors.orange[800]!,
               );
-              return; // 🛑 DETIENE EL FLUJO AQUÍ. Evita que avance al Dashboard general.
+              return;
             }
 
-            // CASO B: Solicitud rechazada por el administrador
+            // CASO B: Solicitud rechazada
             if (estadoSolicitud == 'Rechazado') {
               await FirebaseAuth.instance.signOut(); // Desloguear por seguridad
               _mostrarAlertaEstado(
-                'Solicitud Rechazada',
+                'Solicitud de Operador Rechazada',
                 'Lamentamos informarte que tu solicitud para ser operador ha sido rechazada.',
                 Colors.red[700]!,
               );
-              return; // 🛑 DETIENE EL FLUJO AQUÍ.
+              return;
             }
 
-            // CASO C: Aprobado exitosamente
-            if (estadoSolicitud == 'Aprobado') {
+            // CASO C: Aprobado por primera vez
+            // Solo se muestra la alerta si el estado es 'Aprobado' pero su rol base en la BD sigue siendo 'Viajero'
+            // (Significa que es la primera vez que entra desde que lo aceptaron).
+            if (estadoSolicitud == 'Aprobado' && rolReal == 'viajero') {
+              // Opcional: Aquí puedes actualizar el rol en Firestore a 'operador' de forma automática
+              // para que en el próximo inicio de sesión entre directo sin el modal.
+              await FirebaseFirestore.instance
+                  .collection('usuarios')
+                  .doc(user.uid)
+                  .update({'rol': 'Operador'});
+
               _mostrarAlertaAprobado();
               return;
             }
           }
 
-          // 🟢 Si el usuario es un Viajero normal o Administrador, o ya fue verificado, ingresa al Dashboard
+          // 🟢 3️⃣ SI ES VIAJERO, OPERADOR YA ACTUALIZADO O PASÓ LOS FILTROS, ENTRA DIRECTO
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
@@ -116,7 +134,7 @@ class _LoginViewState extends State<LoginView> {
             ),
           );
         } else {
-          // Si por algún motivo el documento no existe en Firestore
+          // Si por algún motivo el documento no existe en Firestore, entra directo
           Navigator.pushReplacement(
             context,
             MaterialPageRoute(
@@ -125,22 +143,23 @@ class _LoginViewState extends State<LoginView> {
           );
         }
       } else {
-        // 🛑 MENSAJE DE ERROR DE CREDENCIALES: Genérico y desaparece rápido
+        // 🛑 Muestra el mensaje de error real proveniente del AuthController
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text(
-              'Correo o contraseña incorrectos. Por favor, verifica tus datos.',
+            content: Text(
+              authCtrl.errorMessage.isNotEmpty
+                  ? authCtrl.errorMessage
+                  : 'Correo o contraseña incorrectos. Por favor, verifica tus datos.',
             ),
             backgroundColor: Colors.red[700],
-            duration: const Duration(
-              seconds: 2,
-            ), // ⏱️ Solo dura 2 segundos en pantalla
+            duration: const Duration(seconds: 3),
           ),
         );
       }
     }
   }
 
+  // Muestra el aviso emergente según el estatus administrativo
   void _mostrarAlertaEstado(String titulo, String mensaje, Color color) {
     showDialog(
       context: context,
@@ -163,8 +182,7 @@ class _LoginViewState extends State<LoginView> {
               Navigator.pushAndRemoveUntil(
                 context,
                 MaterialPageRoute(builder: (context) => const LandingView()),
-                (route) =>
-                    false, // Limpia el historial para que no pueda volver atrás
+                (route) => false, // Limpia el historial de navegación
               );
             },
             child: const Text(
@@ -339,7 +357,7 @@ class _LoginViewState extends State<LoginView> {
                                 return 'Ingresa un correo válido';
                               }
 
-                              // 🛡️ COMPORTAMIENTO INTELIGENTE DEL TEXTO DE ADVERTENCIA
+                              // 🛡️ ADVERTENCIA EXCLUSIVA EN VIAJEROS
                               if (_selectedRole == UserRole.viajero) {
                                 if (!value.trim().endsWith(
                                   '@correo.unimet.edu.ve',
@@ -439,7 +457,6 @@ class _LoginViewState extends State<LoginView> {
           setState(() {
             _selectedRole = role;
           });
-          // Al cambiar de rol limpiamos los textos de advertencia anteriores automáticamente
           _formKey.currentState?.reset();
         },
         child: AnimatedContainer(

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../theme/eco_theme.dart';
+import 'landing_view.dart'; // 🎯 Importamos la vista del landing
 
 class SolicitudOperadorView extends StatefulWidget {
   const SolicitudOperadorView({super.key});
@@ -150,10 +151,19 @@ class _SolicitudOperadorViewState extends State<SolicitudOperadorView> {
                       ),
                       elevation: 0,
                     ),
-                    onPressed: () {
-                      Navigator.pop(
-                        context,
-                      ); // Regresa al flujo de autenticación/landing
+                    onPressed: () async {
+                      // 1. Cerramos la sesión en Firebase para asegurar que quede en modo visitante
+                      await FirebaseAuth.instance.signOut();
+
+                      // 2. Limpiamos el historial de navegación y lo mandamos directo al Landing
+                      if (context.mounted) {
+                        Navigator.of(context).pushAndRemoveUntil(
+                          MaterialPageRoute(
+                            builder: (context) => const LandingView(),
+                          ),
+                          (route) => false,
+                        );
+                      }
                     },
                     child: const Text(
                       'VOLVER AL INICIO',

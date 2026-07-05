@@ -8,7 +8,7 @@ import 'reservas_view.dart';
 import 'profile_view.dart';
 import 'operador_panel_view.dart';
 import 'admin_panel_view.dart';
-import 'landing_view.dart'; // 🚀 IMPORTANTE: Asegúrate de tener importada tu vista de inicio/login aquí
+import 'landing_view.dart';
 
 class DashboardNavigationView extends StatefulWidget {
   const DashboardNavigationView({super.key});
@@ -20,7 +20,6 @@ class DashboardNavigationView extends StatefulWidget {
 
 class _DashboardNavigationViewState extends State<DashboardNavigationView> {
   int _selectedIndex = 0;
-  String _userRole = 'Viajero';
   bool _isLoading = true;
 
   @override
@@ -48,7 +47,6 @@ class _DashboardNavigationViewState extends State<DashboardNavigationView> {
                 data['motivo_suspension'] ??
                 'Violación de las políticas generales de uso de la plataforma.';
 
-            // 1. Cerramos la sesión en Firebase inmediatamente en segundo plano
             await FirebaseAuth.instance.signOut();
 
             if (mounted) {
@@ -56,11 +54,9 @@ class _DashboardNavigationViewState extends State<DashboardNavigationView> {
                 _isLoading = false;
               });
 
-              // 2. Mostramos el cuadro restrictivo con redirección limpia al Home
               showDialog(
                 context: context,
-                barrierDismissible:
-                    false, // No puede cerrarlo tocando la pantalla afuera
+                barrierDismissible: false,
                 builder: (context) => AlertDialog(
                   shape: RoundedRectangleBorder(
                     borderRadius: BorderRadius.circular(20),
@@ -94,16 +90,12 @@ class _DashboardNavigationViewState extends State<DashboardNavigationView> {
                         foregroundColor: Colors.red[700],
                       ),
                       onPressed: () {
-                        // 🚀 AQUÍ ESTÁ EL CAMBIO ESENCIAL:
-                        // Cierra el cuadro de diálogo y limpia todo el stack de pantallas
-                        // redirigiendo al usuario al LandingView (Home) de forma obligatoria.
                         Navigator.pushAndRemoveUntil(
                           context,
                           MaterialPageRoute(
                             builder: (context) => const LandingView(),
                           ),
-                          (route) =>
-                              false, // Elimina todas las pantallas anteriores para que no pueda volver atrás
+                          (route) => false,
                         );
                       },
                       child: const Text(
@@ -115,16 +107,16 @@ class _DashboardNavigationViewState extends State<DashboardNavigationView> {
                 ),
               );
             }
-            return; // Detiene por completo la carga de vistas internas
+            return;
           }
 
-          // 🟢 SI NO ESTÁ SUSPENDIDO (O FUE REACTIVADO), EL FLUJO SIGUE NORMAL COMO SI NADA HUBIESE PASADO:
           final String rolDetectado =
               (data['rol'] ?? data['tipo_usuario'] ?? 'Viajero')
                   .toString()
                   .trim();
           final String rolNormalizado = rolDetectado.toLowerCase();
 
+          // 🛡️ REDIRECCIÓN INMEDIATA DE ROLES ADMINISTRATIVOS
           if (rolNormalizado == 'administrador' || rolNormalizado == 'admin') {
             if (!mounted) return;
             Navigator.pushReplacement(
@@ -134,8 +126,21 @@ class _DashboardNavigationViewState extends State<DashboardNavigationView> {
             return;
           }
 
+          // 💼 REDIRECCIÓN INMEDIATA DE OPERADORES
+          if (rolNormalizado == 'operador' ||
+              rolNormalizado == 'prestador de servicio') {
+            if (!mounted) return;
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const OperadorPanelView(),
+              ),
+            );
+            return;
+          }
+
+          // Si llegó aquí es un Viajero legítimo y activo
           setState(() {
-            _userRole = rolDetectado;
             _isLoading = false;
           });
         } else {
@@ -157,6 +162,7 @@ class _DashboardNavigationViewState extends State<DashboardNavigationView> {
       );
     }
 
+    // Al haber filtrado a los admins y operadores arriba, este build es exclusivo de los VIAJEROS.
     final List<Widget> vistas = [
       const BuscarRutasView(),
       const ReservasView(),
@@ -180,24 +186,6 @@ class _DashboardNavigationViewState extends State<DashboardNavigationView> {
         label: 'Perfil',
       ),
     ];
-
-    final String rolNormalizado = _userRole.toLowerCase().trim();
-
-    if (rolNormalizado == 'operador' ||
-        rolNormalizado == 'prestador de servicio') {
-      vistas.add(const OperadorPanelView());
-      barraItems.add(
-        const BottomNavigationBarItem(
-          icon: Icon(Icons.storefront_outlined),
-          activeIcon: Icon(Icons.storefront),
-          label: 'Operador',
-        ),
-      );
-    }
-
-    if (_selectedIndex >= vistas.length) {
-      _selectedIndex = 0;
-    }
 
     return Scaffold(
       backgroundColor: const Color(0xFFFCFAF2),

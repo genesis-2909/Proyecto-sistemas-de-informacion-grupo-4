@@ -1,0 +1,353 @@
+import 'package:flutter/material.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../theme/eco_theme.dart';
+
+class AdminPanelView extends StatefulWidget {
+  const AdminPanelView({super.key});
+
+  @override
+  State<AdminPanelView> createState() => _AdminPanelViewState();
+}
+
+class _AdminPanelViewState extends State<AdminPanelView> {
+  // 0 = Tabla Principal, 1 = Aprobar Operadores, 2 = Moderar Reseñas
+  int _currentSubView = 0; 
+  String _searchQuery = '';
+  final TextEditingController _searchController = TextEditingController();
+
+  // Contadores para las tarjetas KPI
+  int _cantViajeros = 0;
+  int _cantOperadores = 0;
+  int _cantAdministradores = 0;
+
+  List<Map<String, dynamic>> _usuarios = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _fetchDatosAdmin();
+  }
+
+  // Carga de usuarios reales desde Firestore y cálculo de métricas
+  Future<void> _fetchDatosAdmin() async {
+    setState(() => _isLoading = true);
+    try {
+      final snapshot = await FirebaseFirestore.instance.collection('usuarios').get();
+      List<Map<String, dynamic>> temporalUsers = [];
+      int viajeros = 0;
+      int operadores = 0;
+      int admins = 0;
+
+      for (var doc in snapshot.docs) {
+        final data = doc.data();
+        final String rol = (data['rol'] ?? 'Viajero').toString().toLowerCase().trim();
+
+        // Conteo preciso para los KPI en tiempo real
+        if (rol == 'administrador' || rol == 'admin') {
+          admins++;
+        } else if (rol == 'operador' || rol == 'prestador de servicio') {
+          operadores++;
+        } else {
+          viajeros++;
+        }
+
+        temporalUsers.add({
+          'uid': doc.id,
+          'nombre': data['nombre_completo'] ?? 'Usuario Anónimo',
+          'correo': data['correo_institucional'] ?? 'Sin Correo',
+          'rol': data['rol'] ?? 'Viajero',
+          'estado': data['estado_solicitud'] ?? 'Aprobado', // Corregido para usar tu campo de Firestore
+        });
+      }
+
+      setState(() {
+        _usuarios = temporalUsers;
+        _cantViajeros = viajeros;
+        _cantOperadores = operadores;
+        _cantAdministradores = admins;
+        _isLoading = false;
+      });
+    } catch (e) {
+      setState(() => _isLoading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: const Color(0xFFFCFAF2),
+      appBar: AppBar(
+        title: const Text('Panel Administrativo', style: TextStyle(fontWeight: FontWeight.bold)),
+        backgroundColor: const Color(0xFF1B5E20),
+        foregroundColor: Colors.white,
+        elevation: 0,
+        actions: [
+          IconButton(
+            icon: const Icon(Icons.refresh_rounded),
+            onPressed: _fetchDatosAdmin,
+          )
+        ],
+      ),
+      body: _isLoading
+          ? const Center(child: CircularProgressIndicator(color: Color(0xFF1B5E20)))
+          : SingleChildScrollView(
+              padding: const EdgeInsets.all(16.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  // 1. SECCIÓN DE METRICAS (KPI Cards)
+                  Row(
+                    children: [
+                      Expanded(child: _buildKPICard('Viajeros', _cantViajeros.toString(), Colors.blue)),
+                      const SizedBox(width: 10),
+                      Expanded(child: _buildKPICard('Operadores', _cantOperadores.toString(), Colors.orange)),
+                      const SizedBox(width: 10),
+                      Expanded(child: _buildKPICard('Admins', _cantAdministradores.toString(), const Color(0xFF1B5E20))),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // 2. FILTRADO Y PESTAÑAS INTERNAS
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      _buildSubViewButton(0, 'Usuarios'),
+                      _buildSubViewButton(1, 'Solicitudes'),
+                      _buildSubViewButton(2, 'Reseñas'),
+                    ],
+                  ),
+                  const SizedBox(height: 15),
+
+                  // Barra de búsqueda premium
+                  if (_currentSubView == 0) _buildBarraBusqueda(),
+
+                  const SizedBox(height: 15),
+
+                  // 3. RENDERIZADO DE SUBVISTAS SELECCIONADA
+                  _buildContenidoSubView(),
+                ],
+              ),
+            ),
+    );
+  }
+
+  Widget _buildKPICard(String titulo, String valor, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 4))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(titulo, style: TextStyle(fontSize: 12, color: Colors.grey.shade500, fontWeight: FontWeight.w600)),
+          const SizedBox(height: 8),
+          Text(valor, style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: color)),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSubViewButton(int index, String texto) {
+    bool activo = _currentSubView == index;
+    return ElevatedButton(
+      style: ElevatedButton.styleFrom(
+        backgroundColor: activo ? const Color(0xFF1B5E20) : Colors.white,
+        foregroundColor: activo ? Colors.white : Colors.grey.shade700,
+        elevation: activo ? 2 : 0,
+        minimumSize: const Size(100, 40),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: activo ? Colors.transparent : Colors.grey.shade300),
+        ),
+      ),
+      onPressed: () => setState(() => _currentSubView = index),
+      child: Text(texto, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+    );
+  }
+
+  Widget _buildBarraBusqueda() {
+    return TextField(
+      controller: _searchController,
+      decoration: InputDecoration(
+        hintText: 'Buscar usuario por nombre o correo...',
+        prefixIcon: const Icon(Icons.search, color: Color(0xFF1B5E20)),
+        filled: true,
+        fillColor: Colors.white,
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none),
+      ),
+      onChanged: (val) {
+        setState(() {
+          _searchQuery = val.toLowerCase().trim();
+        });
+      },
+    );
+  }
+
+  Widget _buildContenidoSubView() {
+    if (_currentSubView == 1) {
+      return _buildVistaSolicitudes();
+    }
+    if (_currentSubView == 2) {
+      return const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('No hay reseñas reportadas para moderación.', style: TextStyle(color: Colors.grey))));
+    }
+
+    // Filtrar la lista local en base al buscador
+    final usuariosFiltrados = _usuarios.where((u) {
+      final nombre = u['nombre'].toString().toLowerCase();
+      final correo = u['correo'].toString().toLowerCase();
+      return nombre.contains(_searchQuery) || correo.contains(_searchQuery);
+    }).toList();
+
+    if (usuariosFiltrados.isEmpty) {
+      return const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('No se encontraron usuarios.', style: TextStyle(color: Colors.grey))));
+    }
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: usuariosFiltrados.length,
+      itemBuilder: (context, index) {
+        final user = usuariosFiltrados[index];
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 6),
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: ListTile(
+            leading: CircleAvatar(
+              backgroundColor: const Color(0xFF1B5E20).withOpacity(0.1),
+              child: const Icon(Icons.person, color: Color(0xFF1B5E20)),
+            ),
+            title: Text(user['nombre'], style: const TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text('${user['correo']}\nRol: ${user['rol']}'),
+            isThreeLine: true,
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.edit_outlined, color: Colors.blue),
+                  onPressed: () => _abrirModalEditar(user),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.delete_outline, color: Colors.red),
+                  onPressed: () => _eliminarUsuarioFirestore(user['uid']),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildVistaSolicitudes() {
+    final solicitudes = _usuarios.where((u) => u['estado'] == 'Pendiente de Aprobación').toList();
+
+    if (solicitudes.isEmpty) {
+      return const Center(child: Padding(padding: EdgeInsets.all(20), child: Text('No hay solicitudes de operador pendientes.', style: TextStyle(color: Colors.grey))));
+    }
+
+    return ListView.builder(
+      shrinkWrap: true,
+      physics: const NeverScrollableScrollPhysics(),
+      itemCount: solicitudes.length,
+      itemBuilder: (context, index) {
+        final user = solicitudes[index];
+        return Card(
+          margin: const EdgeInsets.symmetric(vertical: 6),
+          color: Colors.amber.shade50,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+          child: ListTile(
+            title: Text(user['nombre'], style: const TextStyle(fontWeight: FontWeight.bold)),
+            subtitle: Text('Solicita el rol de Operador\nCorreo: ${user['correo']}'),
+            trailing: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                IconButton(
+                  icon: const Icon(Icons.cancel_outlined, color: Colors.red),
+                  onPressed: () => _rechazarSolicitud(user['uid'], 'estado_solicitud'),
+                ),
+                IconButton(
+                  icon: const Icon(Icons.check_circle_outline, color: Colors.green),
+                  onPressed: () => _cambiarRolVerificado(user['uid'], 'Operador'),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  void _abrirModalEditar(Map<String, dynamic> user) {
+    String selectedRol = user['rol'];
+    String estadoSolicitud = user['estado'];
+
+    showDialog(
+      context: context,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setStateModal) => AlertDialog(
+          title: Text('Editar: ${user['nombre']}'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              DropdownButtonFormField<String>(
+                value: selectedRol,
+                items: ['Viajero', 'Operador', 'Administrador']
+                    .map((r) => DropdownMenuItem(value: r, child: Text(r)))
+                    .toList(),
+                onChanged: (val) => setStateModal(() => selectedRol = val!),
+                decoration: const InputDecoration(labelText: 'Asignar Rol'),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: estadoSolicitud,
+                items: ['Aprobado', 'Pendiente de Aprobación', 'Rechazado']
+                    .map((e) => DropdownMenuItem(value: e, child: Text(e)))
+                    .toList(),
+                onChanged: (val) => setStateModal(() => estadoSolicitud = val!),
+                decoration: const InputDecoration(labelText: 'Estado de la Solicitud'),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancelar')),
+            ElevatedButton(
+              onPressed: () async {
+                await FirebaseFirestore.instance.collection('usuarios').doc(user['uid']).update({
+                  'rol': selectedRol,
+                  'estado_solicitud': estadoSolicitud,
+                });
+                Navigator.pop(context);
+                _fetchDatosAdmin();
+              },
+              child: const Text('Guardar'),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  Future<void> _eliminarUsuarioFirestore(String uid) async {
+    await FirebaseFirestore.instance.collection('usuarios').doc(uid).delete();
+    _fetchDatosAdmin();
+  }
+
+  Future<void> _cambiarRolVerificado(String uid, String nuevoRol) async {
+    await FirebaseFirestore.instance.collection('usuarios').doc(uid).update({
+      'rol': nuevoRol,
+      'estado_solicitud': 'Aprobado',
+    });
+    _fetchDatosAdmin();
+  }
+
+  Future<void> _rechazarSolicitud(String uid, String campoLlave) async {
+    await FirebaseFirestore.instance.collection('usuarios').doc(uid).update({
+      'estado_solicitud': 'Rechazado',
+    });
+    _fetchDatosAdmin();
+  }
+}

@@ -341,7 +341,7 @@ class _VistaPublicaciones extends StatelessWidget {
 }
 
 // =========================================================================
-// 2. VISTA: GESTIÓN DE RESERVAS (CORREGIDA PARA EVITAR RESTRICCIONES INFINITAS)
+// 2. VISTA: GESTIÓN DE RESERVAS
 // =========================================================================
 class _VistaGestionReservas extends StatelessWidget {
   const _VistaGestionReservas();
@@ -414,11 +414,8 @@ class _VistaGestionReservas extends StatelessWidget {
 
                     final String estado = data['estado_actual'] ?? 'Solicitado';
                     Color colorEstado = Colors.orange;
-
-                    // Lógica extendida de colores según tus nuevos estados del flujo
                     if (estado == 'Aceptado') colorEstado = Colors.blue;
                     if (estado == 'Pagado') colorEstado = Colors.green;
-                    if (estado == 'Disfrutado') colorEstado = Colors.teal;
                     if (estado == 'Rechazado') colorEstado = Colors.red;
 
                     return Container(
@@ -434,15 +431,12 @@ class _VistaGestionReservas extends StatelessWidget {
                           Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
                             children: [
-                              Expanded(
-                                child: Text(
-                                  data['nombre_destino'] ?? 'Destino Turístico',
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 16,
-                                    color: EcoTheme.darkForest,
-                                  ),
-                                  overflow: TextOverflow.ellipsis,
+                              Text(
+                                data['nombre_destino'] ?? 'Destino Turístico',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 16,
+                                  color: EcoTheme.darkForest,
                                 ),
                               ),
                               Container(
@@ -486,7 +480,7 @@ class _VistaGestionReservas extends StatelessWidget {
                           ),
                           if (estado == 'Solicitado') ...[
                             const SizedBox(height: 14),
-                            // CORREGIDO: Se usa Wrap en lugar de Row para evitar desbordamiento horizontal infinito en la Web
+                            // ARREGLADO: Cambiado Row por Wrap adaptativo para Web/Escritorio seguro
                             Wrap(
                               spacing: 8,
                               runSpacing: 8,
@@ -496,9 +490,7 @@ class _VistaGestionReservas extends StatelessWidget {
                                   style: OutlinedButton.styleFrom(
                                     foregroundColor: Colors.red,
                                     side: const BorderSide(color: Colors.red),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                   ),
                                   onPressed: () => FirebaseFirestore.instance
                                       .collection('reservas')
@@ -510,9 +502,7 @@ class _VistaGestionReservas extends StatelessWidget {
                                   style: ElevatedButton.styleFrom(
                                     backgroundColor: EcoTheme.forestGreen,
                                     foregroundColor: Colors.white,
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(8),
-                                    ),
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
                                   ),
                                   onPressed: () => FirebaseFirestore.instance
                                       .collection('reservas')

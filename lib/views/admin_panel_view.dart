@@ -17,7 +17,6 @@ class AdminPanelView extends StatefulWidget {
 class _AdminPanelViewState extends State<AdminPanelView> {
   int _currentIndex = 0;
 
-  // Títulos oficiales para las 5 secciones requeridas
   final List<String> _titles = [
     'Dashboard Macro',
     'Control de Publicaciones',
@@ -55,7 +54,7 @@ class _AdminPanelViewState extends State<AdminPanelView> {
         children: [
           _buildDashboardSection(),
           _buildPublicacionesSection(),
-          const GestionSolicitudesView(), // Vista de aprobación de documentos avales
+          const GestionSolicitudesView(),
           _buildControlUsuariosSection(),
           _buildPerfilSection(),
         ],
@@ -103,9 +102,6 @@ class _AdminPanelViewState extends State<AdminPanelView> {
     );
   }
 
-  // =========================================================================
-  // SECCIÓN 1: DASHBOARD CON GRÁFICOS INTERACTIVOS (fl_chart) Y CONTADORES
-  // =========================================================================
   Widget _buildDashboardSection() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('usuarios').snapshots(),
@@ -130,7 +126,6 @@ class _AdminPanelViewState extends State<AdminPanelView> {
         return ListView(
           padding: const EdgeInsets.all(16.0),
           children: [
-            // Contadores en Tiempo Real superiores
             Row(
               children: [
                 _buildCounterCard(
@@ -158,9 +153,7 @@ class _AdminPanelViewState extends State<AdminPanelView> {
                   )
                   .snapshots(),
               builder: (context, snapPend) {
-                int pendientes = snapPend.hasData
-                    ? snapPend.data!.docs.length
-                    : 0;
+                int pendientes = snapPend.hasData ? snapPend.data!.docs.length : 0;
                 return _buildCounterCard(
                   'Publicaciones/Solicitudes Pendientes',
                   pendientes.toString(),
@@ -171,7 +164,6 @@ class _AdminPanelViewState extends State<AdminPanelView> {
             ),
             const SizedBox(height: 24),
 
-            // GRÁFICO 1: Destinos más buscados
             const Text(
               'Destinos Más Buscados vs Rango de Precio',
               style: TextStyle(
@@ -246,7 +238,6 @@ class _AdminPanelViewState extends State<AdminPanelView> {
             ),
             const SizedBox(height: 24),
 
-            // GRÁFICO 2: Métricas de Transacciones
             const Text(
               'Métricas Financieras (Reservas Efectivas vs Canceladas)',
               style: TextStyle(
@@ -256,44 +247,11 @@ class _AdminPanelViewState extends State<AdminPanelView> {
               ),
             ),
             const SizedBox(height: 8),
-            Container(
-              height: 180,
-              padding: const EdgeInsets.all(16),
-              decoration: EcoTheme.luxuryCard(),
-              child: PieChart(
-                PieChartData(
-                  sectionsSpace: 4,
-                  centerSpaceRadius: 40,
-                  sections: [
-                    PieChartSectionData(
-                      color: Colors.green[600],
-                      value: 75,
-                      title: '75% Reservas',
-                      radius: 45,
-                      titleStyle: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 11,
-                      ),
-                    ),
-                    PieChartSectionData(
-                      color: Colors.red[400],
-                      value: 25,
-                      title: '25% Canc.',
-                      radius: 45,
-                      titleStyle: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
+            
+            const GraficaFinancieraReal(),
+
             const SizedBox(height: 24),
 
-            // GRÁFICO 3: Tasa de Conversión Turística
             const Text(
               'Tasa de Conversión Turística (Búsqueda vs Reserva Efectiva)',
               style: TextStyle(
@@ -385,9 +343,6 @@ class _AdminPanelViewState extends State<AdminPanelView> {
     );
   }
 
-  // =========================================================================
-  // SECCIÓN 2: CONTROL DE PUBLICACIONES (ACTIVAR / DESACTIVAR)
-  // =========================================================================
   Widget _buildPublicacionesSection() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('rutas').snapshots(),
@@ -413,8 +368,7 @@ class _AdminPanelViewState extends State<AdminPanelView> {
             final bool isActiva = data['activo'] ?? true;
             final String origen = data['origen'] ?? 'Sin especificar';
             final String destino = data['destino'] ?? 'Sin especificar';
-            final String operador =
-                data['nombre_operador'] ?? 'Operador del Sistema';
+            final String operador = data['nombre_operador'] ?? 'Operador del Sistema';
 
             return Container(
               margin: const EdgeInsets.symmetric(vertical: 6),
@@ -449,9 +403,6 @@ class _AdminPanelViewState extends State<AdminPanelView> {
     );
   }
 
-  // =========================================================================
-  // SECCIÓN 4: CONTROL DE USUARIOS (TOTALMENTE EN VIVO Y CORREGIDO)
-  // =========================================================================
   Widget _buildControlUsuariosSection() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance.collection('usuarios').snapshots(),
@@ -479,7 +430,7 @@ class _AdminPanelViewState extends State<AdminPanelView> {
             final String email = data['correo_institucional'] ?? 'Sin Correo';
             final String currentRol = data['rol'] ?? 'Viajero';
             final bool isSuspendido = data['suspendido'] ?? false;
-
+            
             return Container(
               margin: const EdgeInsets.symmetric(vertical: 6),
               decoration: EcoTheme.luxuryCard(),
@@ -502,7 +453,6 @@ class _AdminPanelViewState extends State<AdminPanelView> {
                   style: const TextStyle(fontWeight: FontWeight.bold),
                 ),
                 subtitle: Text('Rol: $currentRol\n$email'),
-                // Solución definitiva al error de renderizado usando SizedBox restrictivo
                 trailing: SizedBox(
                   width: 110,
                   child: isSuspendido
@@ -562,7 +512,7 @@ class _AdminPanelViewState extends State<AdminPanelView> {
       'Comportamiento inadecuado con los viajeros',
       'Publicación de datos falsos o de rutas engañosas',
     ];
-
+    
     showDialog(
       context: context,
       builder: (context) {
@@ -652,9 +602,6 @@ class _AdminPanelViewState extends State<AdminPanelView> {
     );
   }
 
-  // =========================================================================
-  // SECCIÓN 5: PERFIL DEL ADMINISTRADOR Y LOGOUT DIRECTO AL HOME
-  // =========================================================================
   Widget _buildPerfilSection() {
     final User? adminFirebase = FirebaseAuth.instance.currentUser;
 
@@ -731,6 +678,116 @@ class _AdminPanelViewState extends State<AdminPanelView> {
           ),
         ),
       ),
+    );
+  }
+}
+
+class GraficaFinancieraReal extends StatelessWidget {
+  const GraficaFinancieraReal({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      height: 250,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10),
+        ],
+      ),
+      child: StreamBuilder<QuerySnapshot>(
+        stream: FirebaseFirestore.instance.collection('reservas').snapshots(),
+        builder: (context, snapshot) {
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+          if (snapshot.hasError || !snapshot.hasData) {
+            return const Center(child: Text('Error cargando datos'));
+          }
+
+          final reservas = snapshot.data!.docs;
+          if (reservas.isEmpty) return const Center(child: Text('No hay datos aún'));
+
+          int efectivas = 0;
+          int canceladas = 0;
+
+          for (var doc in reservas) {
+            final data = doc.data() as Map<String, dynamic>;
+            final estado = data['estado_actual'] ?? '';
+            
+            if (['Aceptado', 'Pagado', 'Disfrutado'].contains(estado)) {
+              efectivas++;
+            } else if (['Rechazado', 'Cancelado'].contains(estado)) {
+              canceladas++;
+            }
+          }
+
+          final total = efectivas + canceladas;
+          if (total == 0) return const Center(child: Text('No hay reservas procesadas'));
+
+          final pctEfectivas = (efectivas / total) * 100;
+          final pctCanceladas = (canceladas / total) * 100;
+
+          return Row(
+            children: [
+              Expanded(
+                child: PieChart(
+                  PieChartData(
+                    sectionsSpace: 4,
+                    centerSpaceRadius: 40,
+                    sections: [
+                      PieChartSectionData(
+                        color: Colors.green,
+                        value: pctEfectivas,
+                        title: '${pctEfectivas.toStringAsFixed(0)}%',
+                        radius: 50,
+                        titleStyle: const TextStyle(
+                            fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                      PieChartSectionData(
+                        color: Colors.redAccent,
+                        value: pctCanceladas,
+                        title: '${pctCanceladas.toStringAsFixed(0)}%',
+                        radius: 50,
+                        titleStyle: const TextStyle(
+                            fontWeight: FontWeight.bold, color: Colors.white),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _IndicadorLeyenda(color: Colors.green, texto: 'Efectivas ($efectivas)'),
+                  const SizedBox(height: 8),
+                  _IndicadorLeyenda(color: Colors.redAccent, texto: 'Canceladas ($canceladas)'),
+                ],
+              ),
+            ],
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _IndicadorLeyenda extends StatelessWidget {
+  final Color color;
+  final String texto;
+  const _IndicadorLeyenda({required this.color, required this.texto});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      children: [
+        Container(width: 12, height: 12, color: color),
+        const SizedBox(width: 8),
+        Text(texto, style: const TextStyle(fontWeight: FontWeight.w600)),
+      ],
     );
   }
 }
